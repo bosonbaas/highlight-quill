@@ -1,5 +1,6 @@
 import { useRef, useEffect, useState } from "react";
 import { nanoid } from "nanoid";
+import Highlight from "./components/Highlight"
 // This might be the wrong scope for this??
 const hoverState = new Set();
 
@@ -21,50 +22,26 @@ function App(props) {
   const inputRef = useRef(null);
   console.log("rendering big thing")
   console.log(hoverState)
+  
+  const highlightDivs = highlights.map((rng) => {
+    return (
+      <Highlight
+        key={rng.id}
+        id={rng.id} 
+        hover={rng.hover}
+        setHover={(hover)=>setHover(rng.id, hover)}
+        inputRef={inputRef}
+        htmlContext={html}
+        />
+    )
+  })
+  
+  // This effect only needs to run when this component is first loaded up,
+  // all contained event listeners are agnostic to locations of highlights
   useEffect(()=>{
-    console.log("rendering")
+    console.log("Add listeners to input div")
     const input = inputRef.current
     if(input){
-      const hlDivs = input.getElementsByTagName("div")
-      while(hlDivs[0]){
-        hlDivs[0].remove()
-      }
-      highlights.forEach((rng, i) => {
-        const range = new Range();
-        range.setStartAfter(document.getElementById(`${rng.id}-start`))
-        range.setEndBefore(document.getElementById(`${rng.id}-end`))
-        const boundRects = range.getClientRects()
-        const inputRects = input.getBoundingClientRect()
-        let ind = 0
-        for( const hls of boundRects ) {
-          ind += 1
-          const hl = document.createElement("div")
-          hl.className = rng.id
-          hl.classList.add("highlight")
-          hl.id = `${rng.id}-${ind}`
-          hl.style.position = "absolute"
-          console.log(input.style.top)
-          hl.style.top = `${hls.top - inputRects.top}px`
-          hl.style.left = `${hls.left - inputRects.left}px`
-          hl.style.width = `${hls.width}px`
-          hl.style.height = `${hls.height}px`
-          hl.style.zIndex = "-1"
-          hl.style.backgroundColor = rng.hover ? "rgba(78, 117, 129, 0.86)" : "rgba(173, 216, 230, 0.466)"
-          input.appendChild(hl)
-          // Add event listeners here
-          hl.addEventListener("mouseenter", (e) => {
-            console.log("mouse entered" + rng.id)
-            setHover(rng.id, true)
-          })
-          hl.addEventListener("mousemove", (e) => {
-            console.log(`mouse moved ${rng.id}`)
-          })
-          hl.addEventListener("mouseleave", (e) => {
-            console.log("mouse left" + rng.id)
-            setHover(rng.id, false)
-          })
-        }
-      })
       const curHover = new Set();
       function mouseMove(e){
         const elements = document.elementsFromPoint(e.clientX, e.clientY);
@@ -83,6 +60,7 @@ function App(props) {
             hoverState.delete(el)
           }
         })
+
         // Trigger mouseenter events on new hovered elements
         curHover.forEach((el) => {
           if(!hoverState.has(el)){
@@ -105,7 +83,7 @@ function App(props) {
         input.removeEventListener("mouseleave", mouseLeave)
       }
     }
-  }, [highlights, html])
+  }, [])
 
   function onClick(e) {
     const sel = document.getSelection();
@@ -141,19 +119,22 @@ function App(props) {
   return (
     <div className="highlight-app">
       <h1>Highlighter App</h1>
-      <div 
-        id="input-div" 
-        style={{position: "relative"}} 
-        contentEditable={true}
-        ref={inputRef}
-        onInput={(e)=>{setHTML(e.currentTarget.innerHTML)}}
-        suppressContentEditableWarning={true}>
-          Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt 
-        ut <mark className="no-copy" id={"a-start"}/> labore et dolore 
-        magna aliqua. Ut enim ad minim veniam, <mark className="no-copy" id={"a-end"}/> quis nostrud 
-        exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor 
-        in reprehenderit in voluptate velit esse <mark className="no-copy" id={"b-start"}/> cillum dolore eu fugiat nulla pariatur. Excepteur
-         sint occaecat cupidatat non proident, sunt in culpa <mark className="no-copy" id={"b-end"}/> qui officia deserunt mollit anim id est laborum
+      <div style={{position: "relative"}} ref={inputRef}>
+        <div 
+          id="input-div" 
+          contentEditable={true}
+          onInput={(e)=>{setHTML(e.currentTarget.innerHTML)}}
+          suppressContentEditableWarning={true}>
+            Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt 
+          ut <mark className="no-copy" id={"a-start"}/> labore et dolore 
+          magna aliqua. Ut enim ad minim veniam, <mark className="no-copy" id={"a-end"}/> quis nostrud 
+          exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor 
+          in reprehenderit in voluptate velit esse <mark className="no-copy" id={"b-start"}/> cillum dolore eu fugiat nulla pariatur. Excepteur
+          sint occaecat cupidatat non proident, sunt in culpa <mark className="no-copy" id={"b-end"}/> qui officia deserunt mollit anim id est laborum
+        </div>
+        <div id="highlights">
+          {highlightDivs}
+        </div>
       </div>
       <div className="controls">
         <button onClick={onClick} className="btn"> Add highlight
