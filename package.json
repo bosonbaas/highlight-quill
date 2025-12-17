@@ -8,10 +8,15 @@
   "main": "index.html",
   "scripts": {
     "build": "vite build",
+    "dev": "vite dev",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
+    "nanoid": "^5.1.6",
+    "parchment": "^3.0.0",
+    "quill": "^2.0.3",
+    "react": "^19.2.3",
     "react-dom": "^19.2.0",
     "vite": "^7.2.4",
     "zustand": "^5.0.8"

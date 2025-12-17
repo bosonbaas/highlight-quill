@@ -300,3 +300,142 @@ body {
   -ms-user-select: none;     /* IE/Edge */
   user-select: none;         /* Standard */
 }
+
+/* Highlight App Styles */
+.highlight-app {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin: 2rem auto;
+  max-width: 900px;
+  padding: 2rem;
+}
+
+.highlight-app h1 {
+  color: #333;
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.quill-editor {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  min-height: 300px;
+  margin-bottom: 2rem;
+}
+
+/* Quill Toolbar Styles */
+.ql-toolbar {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px 4px 0 0;
+  padding: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.ql-toolbar.ql-snow {
+  background: #f9f9f9;
+}
+
+.ql-toolbar button {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+  margin: 0.25rem;
+  padding: 0.4rem 0.6rem;
+  transition: all 0.2s ease;
+  background: white;
+  font-size: 16px;
+  width: auto;
+  height: auto;
+  line-height: 1;
+}
+
+.ql-toolbar button:hover {
+  background: #f0f0f0;
+  border-color: #999;
+}
+
+.ql-toolbar button.ql-active {
+  background: #e3f2fd;
+  border-color: #2196f3;
+}
+
+.ql-toolbar button.ql-highlight-btn {
+  font-size: 18px;
+  padding: 0.3rem 0.6rem;
+}
+
+/* Quill Editor Styles */
+.ql-container {
+  border-radius: 0 0 4px 4px;
+  font: 16px sans-serif;
+}
+
+.ql-editor {
+  min-height: 250px;
+  padding: 1.5rem;
+}
+
+.ql-editor.ql-blank::before {
+  color: #ccc;
+}
+
+/* Highlight Blot Styles */
+span[data-highlight-id] {
+  mix-blend-mode: multiply;
+  cursor: pointer;
+  padding: 2px 0;
+  border-radius: 2px;
+  transition: background-color 0.2s ease;
+}
+
+/* Highlights List Styles */
+.highlights-list {
+  border-top: 2px solid #e0e0e0;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+}
+
+.highlights-list h3 {
+  color: #555;
+  margin-bottom: 1rem;
+  margin-top: 0;
+}
+
+.highlights-list ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  padding: 0;
+}
+
+.highlights-list li {
+  background: #f5f5f5;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0.6rem 1rem;
+  transition: all 0.2s ease;
+}
+
+.highlights-list li:hover {
+  border-color: #999;
+  transform: translateY(-2px);
+}
+
+.highlights-list li[style*="color: red"] {
+  background: rgba(255, 0, 0, 0.1);
+  border-color: #ff6b6b;
+  color: #cc0000;
+  font-weight: bold;
+}
+
+.highlights-list li[style*="color: blue"] {
+  background: rgba(0, 0, 255, 0.05);
+  border-color: #90caf9;
+  color: #1976d2;
+}
