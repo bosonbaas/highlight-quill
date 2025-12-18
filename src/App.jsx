@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from "react";
 import Quill from "quill";
-import { registerHighlightFormat, setupHoverListeners, HighlightStateManager } from "./plugins/quillHighlightPlugin";
+import { nanoid } from "nanoid";
+import { registerHighlightFormat, setupHoverListeners, updateHoverFromState, HighlightStateManager } from "./plugins/quillHighlightPlugin";
 import "./index.css";
 
 // Register the highlight format once at module load
@@ -22,6 +23,9 @@ function App(props) {
         }
       })
     );
+
+    // Sync hover state to visual display
+    updateHoverFromState(key, hover);
   }
 
   useEffect(() => {
@@ -53,7 +57,7 @@ function App(props) {
       highlightBtn.addEventListener('click', () => {
         const selection = quill.getSelection();
         if (selection && selection.length > 0) {
-          const highlightId = Math.random().toString(36).substr(2, 9);
+          const highlightId = nanoid();
           
           // Apply highlight
           quill.formatText(selection.index, selection.length, 'highlight', highlightId);

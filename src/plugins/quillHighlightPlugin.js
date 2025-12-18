@@ -63,22 +63,24 @@ class HighlightFormat extends Inline {
     return domNode;
   }
 
+  // Override formatAt to support overlapping highlights with different IDs.
+  // Parchment's InlineBlot prevents overlapping inline formats of the same type
+  // with different values. We bypass InlineBlot's logic by delegating to ParentBlot
+  // when applying a different highlight ID to facilitate overlap
   formatAt(index, length, name, value) {
-    const superDuperFormatAt = ParentBlot.prototype.formatAt;
-    // Skip all the way to ParentBlot to process formatAt if it's two
-    // highlights with differing ids. Otherwise, one overwrites the
-    // other at the InlineBlot level.
     if (
       value &&
       name === "highlight" &&
       this.domNode.getAttribute("data-highlight-id") !== value
     ) {
-      superDuperFormatAt.call(this, index, length, name, value);
+      // Different highlight ID: skip InlineBlot's restrictive logic
+      ParentBlot.prototype.formatAt.call(this, index, length, name, value);
     } else {
-      super.formatAt(index, length, name, value)
+      // Same or no highlight: use normal InlineBlot behavior
+      super.formatAt(index, length, name, value);
     }
   }
-  
+
   static formats(domNode) {
     return domNode.getAttribute('data-highlight-id');
   }
@@ -94,54 +96,65 @@ export function registerHighlightFormat() {
 
 export function setupHoverListeners(quill, onHoverChange) {
   const editorElement = quill.root;
-  let currentHoveredIds = new Set();
+  const currentHoveredIds = new Set();
 
-  function getHighlightsAtPoint(x, y) {
-    const elements = document.elementsFromPoint(x, y);
-    const ids = new Set();
-    elements.forEach((el) => {
-      const id = el.getAttribute('data-highlight-id');
-      if (id) {
-        ids.add(id);
+  // Attach mouseenter/mouseleave listeners to each highlight span
+  function attachSpanListeners(span) {
+    const highlightId = span.getAttribute('data-highlight-id');
+
+    span.addEventListener('mouseenter', () => {
+      if (!currentHoveredIds.has(highlightId)) {
+        currentHoveredIds.add(highlightId);
+        updateHighlightVisuals(highlightId, true);
+        if (onHoverChange) {
+          onHoverChange(highlightId, true);
+        }
       }
     });
-    return ids;
+
+    span.addEventListener('mouseleave', () => {
+      // Check if cursor is still over this highlight or a nested one
+      if (!isHighlightStillHovered(highlightId)) {
+        currentHoveredIds.delete(highlightId);
+        updateHighlightVisuals(highlightId, false);
+        if (onHoverChange) {
+          onHoverChange(highlightId, false);
+        }
+      }
+    });
   }
 
-  editorElement.addEventListener('mousemove', (e) => {
-    const newHoveredIds = getHighlightsAtPoint(e.clientX, e.clientY);
-
-    // Handle hover exits
-    currentHoveredIds.forEach((id) => {
-      if (!newHoveredIds.has(id)) {
-        updateHighlightVisuals(id, false);
-        if (onHoverChange) {
-          onHoverChange(id, false);
-        }
-        currentHoveredIds.delete(id);
+  // Check if a highlight is still being hovered (including nested highlights)
+  function isHighlightStillHovered(highlightId) {
+    const spans = document.querySelectorAll(`span[data-highlight-id="${highlightId}"]`);
+    for (let span of spans) {
+      if (span.matches(':hover')) {
+        return true;
       }
-    });
+    }
+    return false;
+  }
 
-    // Handle hover entries
-    newHoveredIds.forEach((id) => {
-      if (!currentHoveredIds.has(id)) {
-        updateHighlightVisuals(id, true);
-        if (onHoverChange) {
-          onHoverChange(id, true);
+  // Attach listeners to all existing highlight spans
+  editorElement.querySelectorAll('span[data-highlight-id]').forEach(attachSpanListeners);
+
+  // Observe for new highlight spans and attach listeners
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      mutation.addedNodes.forEach((node) => {
+        if (node.nodeType === 1) { // Element node
+          if (node.hasAttribute('data-highlight-id')) {
+            attachSpanListeners(node);
+          }
+          node.querySelectorAll?.('span[data-highlight-id]').forEach(attachSpanListeners);
         }
-        currentHoveredIds.add(id);
-      }
+      });
     });
   });
 
-  editorElement.addEventListener('mouseleave', (e) => {
-    currentHoveredIds.forEach((id) => {
-      updateHighlightVisuals(id, false);
-      if (onHoverChange) {
-        onHoverChange(id, false);
-      }
-    });
-    currentHoveredIds.clear();
+  observer.observe(editorElement, {
+    childList: true,
+    subtree: true,
   });
 }
 
@@ -152,6 +165,12 @@ function updateHighlightVisuals(id, isHovered) {
     const colors = getColorForHighlight(id);
     el.style.backgroundColor = isHovered ? colors.hover : colors.normal;
   });
+}
+
+export function updateHoverFromState(highlightId, isHovered) {
+  // Called when state changes externally (e.g., from button clicks)
+  // Syncs the visual state and manages the hover set
+  updateHighlightVisuals(highlightId, isHovered);
 }
 
 export class HighlightStateManager {
