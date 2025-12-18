@@ -105,9 +105,11 @@ export function setupHoverListeners(quill, onHoverChange) {
     span.addEventListener('mouseenter', () => {
       if (!currentHoveredIds.has(highlightId)) {
         currentHoveredIds.add(highlightId);
-        updateHighlightVisuals(highlightId, true);
+        // Only update visuals if onHoverChange isn't specified
         if (onHoverChange) {
           onHoverChange(highlightId, true);
+        } else {
+          updateHighlightVisuals(highlightId, true);
         }
       }
     });
@@ -116,15 +118,17 @@ export function setupHoverListeners(quill, onHoverChange) {
       // Check if cursor is still over this highlight or a nested one
       if (!isHighlightStillHovered(highlightId)) {
         currentHoveredIds.delete(highlightId);
-        updateHighlightVisuals(highlightId, false);
+        // Only update visuals if onHoverChange isn't specified
         if (onHoverChange) {
           onHoverChange(highlightId, false);
+        } else {
+          updateHighlightVisuals(highlightId, false);
         }
       }
     });
   }
 
-  // Check if a highlight is still being hovered (including nested highlights)
+  // Check if any spans of this highlight are curently hovered
   function isHighlightStillHovered(highlightId) {
     const spans = document.querySelectorAll(`span[data-highlight-id="${highlightId}"]`);
     for (let span of spans) {
@@ -171,33 +175,4 @@ export function updateHoverFromState(highlightId, isHovered) {
   // Called when state changes externally (e.g., from button clicks)
   // Syncs the visual state and manages the hover set
   updateHighlightVisuals(highlightId, isHovered);
-}
-
-export class HighlightStateManager {
-  constructor() {
-    this.listeners = [];
-    this.hoverState = new Map();
-    this.onHoverChange = null;
-    this.onHighlightAdded = null;
-  }
-
-  subscribe(listener) {
-    this.listeners.push(listener);
-    return () => {
-      this.listeners = this.listeners.filter((l) => l !== listener);
-    };
-  }
-
-  notifyHoverChange(id, hover) {
-    this.hoverState.set(id, hover);
-    this.listeners.forEach((listener) => listener({ type: 'hover', id, hover }));
-  }
-
-  notifyHighlightAdded(highlight) {
-    this.listeners.forEach((listener) => listener({ type: 'added', highlight }));
-  }
-
-  getHover(id) {
-    return this.hoverState.get(id) || false;
-  }
 }
