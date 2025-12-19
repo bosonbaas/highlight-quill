@@ -1,7 +1,11 @@
 import { useEffect, useRef } from 'react';
 import Quill from "quill";
+import katex from 'katex';
 import { nanoid } from "nanoid";
 import { registerHighlightFormat, setupHoverListeners, updateHoverFromState } from "../plugins/quillHighlightPlugin";
+import 'katex/dist/katex.min.css';
+
+window.katex = katex;
 
 // Register the highlight format once at module load
 registerHighlightFormat();
@@ -42,6 +46,7 @@ export default function Editor({highlights, setHighlights, setHover, defaultValu
       <button class="ql-bold" title="Bold"></button>
       <button class="ql-italic" title="Italic"></button>
       <button class="ql-underline" title="Underline"></button>
+      <button class="ql-formula" title="Underline"></button>
       <button class="ql-highlight-btn" title="Add highlight">✏️</button>
     `;
     const toolbar = container.ownerDocument.createElement('div')

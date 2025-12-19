@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
+    "katex": "^0.16.27",
     "nanoid": "^5.1.6",
     "parchment": "^3.0.0",
     "quill": "^2.0.3",
