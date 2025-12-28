@@ -30,9 +30,12 @@ export default function Editor({highlights, setHighlights, setHover, defaultValu
   
   useEffect(() => {
     // Sync hover state to visual display
-    console.log("Updating highlight state")
+    const hoveredState = highlights.reduce((hs, hl) => {
+      hs[hl.id] = hl.hover;
+      return hs;
+    }, {})
     highlights.forEach(hl => {
-      updateHoverFromState(hl.id, hl.hover);
+      updateHoverFromState(hl.id, hoveredState);
     });
   }, [highlights])
 
@@ -66,28 +69,26 @@ export default function Editor({highlights, setHighlights, setHover, defaultValu
     const quill = new Quill(editorContainer, {
       theme: "snow",
       modules: {
-        toolbar: toolbarContainer,
+        toolbar: {
+          container: toolbarContainer,
+          handlers: {
+            'highlight-btn': function() { // Match the class name 'ql-custom-button' (minus 'ql-')
+                const range = this.quill.getSelection();
+                if (range) {
+                    // Toggle the format
+                    const highlightId = nanoid()
+                    this.quill.format('highlight', highlightId);
+                    addHighlightRef?.current({
+                      id: highlightId,
+                      type: "claim",
+                      hover: false,
+                    })
+                }
+            }
+          }
+        }
       },
     });
-
-    // Setup highlight button handler
-    const highlightBtn = containerRef.current.querySelector('.ql-highlight-btn');
-    if (highlightBtn) {
-      highlightBtn.addEventListener('click', () => {
-        const selection = quill.getSelection();
-        if (selection && selection.length > 0) {
-          const highlightId = nanoid();
-          
-          // Apply highlight
-          quill.formatText(selection.index, selection.length, 'highlight', highlightId);
-          addHighlightRef?.current({
-            id: highlightId,
-            type: "claim",
-            hover: false,
-          })
-        }
-      });
-    }
 
     ref.current = quill;
 

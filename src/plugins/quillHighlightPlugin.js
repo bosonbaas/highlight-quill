@@ -1,7 +1,54 @@
 import Quill from 'quill';
-import { InlineBlot, ParentBlot, Scope } from 'parchment';
+import _ from 'underscore';
+import { ClassAttributor, Scope } from 'parchment';
 
-const Inline = Quill.import('blots/inline');
+class Highlight extends ClassAttributor {
+  constructor(attrName = 'highlight', keyName = 'highlight') {
+    super(attrName, keyName, { scope: Scope.INLINE_ATTRIBUTE });
+  }
+
+  // If the input value is an array, we repace all existing highlight classes
+  // otherwise, we append. This is because when this re-hydrates from a delta,
+  // it causes highlight classes to leak between subsequent spans. But it will
+  // always use arrays in this case (because that is the value we return)
+  add(node, value) {
+    if (!this.canAdd(node, value)) return false;
+    if (Array.isArray(value)) {
+      // Remove any existing highlights"
+      const newClassList = _.filter(node.classList, (cl) => !cl.startsWith(`${this.keyName}-`))
+      node.classList = newClassList
+      value.forEach((id) => {
+        node.classList.add(`${this.keyName}-${id}`);
+      });
+      node.classList.add(this.keyName)
+    } else {
+      node.classList.add(`${this.keyName}-${value}`);
+      node.classList.add(this.keyName)
+    }
+    return true;
+  }
+
+  remove(node, id) {
+    if (id == null) {
+      super.remove(node);
+    } else {
+      node.classList.remove(`${this.keyName}-${id}`);
+      if (node.classList.length === 0) {
+        node.removeAttribute('class');
+      }
+    }
+  }
+
+  value(node) {
+    const prefix = `${this.keyName}-`;
+    const list = _.filter( node.classList, (c) => {
+      return c.startsWith(prefix);
+    }).map((c) => {
+      return c.slice(prefix.length);
+    });
+    return (list.length > 0) ? list : null;
+  }
+}
 
 // Color palette for highlights
 const colorPalette = [
@@ -26,10 +73,53 @@ const hoverColorPalette = [
   'rgba(100, 200, 150, 0.86)',   // dark cyan
 ];
 
+function rgba2ob(color){
+  const [pr, b, g, pa] = color.split(',')
+  const r = pr.split("(")[1]
+  const a = pa.split(")")[0]
+  return {
+    r: Number(r),
+    g: Number(g),
+    b: Number(b),
+    a: Number(a)
+  }
+}
+
+function ob2rgba(cOb){
+  return `rgba(${cOb.r}, ${cOb.g}, ${cOb.b}, ${cOb.a})`
+}
+
+// Following https://stackoverflow.com/questions/10781953/determine-rgba-colour-received-by-combining-two-colours
+// Porter-Duff method where c1 is rendered in front of c2
+function combineColorsPD(c2, c1){
+  const ar = c1.a + c2.a * (1 - c1.a)
+  if( ar === 0 ){
+    return {
+      r: 0,
+      g: 0,
+      b: 0,
+      a: 0
+    }
+  }
+  const c3 = {
+    r: (c1.r * c1.a + c2.r * c2.a * (1 - c1.a)) / ar,
+    g: (c1.g * c1.a + c2.g * c2.a * (1 - c1.a)) / ar,
+    b: (c1.b * c1.a + c2.b * c2.a * (1 - c1.a)) / ar,
+    a: ar
+  }
+  return c3
+}
+
+// Combining an array of colors passed as strings using Porter-Duff
+// The last element of the array is rendered as the front element
+function combineColorStringArrayPD(colors){
+  return ob2rgba(colors.map(rgba2ob).reduce(combineColorsPD))
+}
+
 const highlightColorMap = new Map();
 let colorIndex = 0;
 
-function getColorForHighlight(id) {
+function getColorForHighlight(id, hoverState) {
   if (!highlightColorMap.has(id)) {
     highlightColorMap.set(id, {
       normal: colorPalette[colorIndex % colorPalette.length],
@@ -37,61 +127,23 @@ function getColorForHighlight(id) {
     });
     colorIndex++;
   }
-  return highlightColorMap.get(id);
-}
-
-// Custom highlight format - each span represents a single highlight
-class HighlightFormat extends Inline {
-  static blotName = 'highlight';
-  static tagName = 'span';
-  
-  static create(value) {
-    //this.blotName = `highlight-${value}`
-    const domNode = super.create();
-    
-    // Value is a single highlight ID
-    domNode.setAttribute('data-highlight-id', value);
-    
-    const colors = getColorForHighlight(value);
-    domNode.style.backgroundColor = colors.normal;
-    domNode.style.mixBlendMode = 'multiply';
-    domNode.style.cursor = 'pointer';
-    domNode.style.padding = '2px 0';
-    domNode.style.borderRadius = '2px';
-    domNode.style.transition = 'background-color 0.2s ease';
-    
-    return domNode;
-  }
-
-  // Override formatAt to support overlapping highlights with different IDs.
-  // Parchment's InlineBlot prevents overlapping inline formats of the same type
-  // with different values. We bypass InlineBlot's logic by delegating to ParentBlot
-  // when applying a different highlight ID to facilitate overlap
-  formatAt(index, length, name, value) {
-    if (
-      value &&
-      name === "highlight" &&
-      this.domNode.getAttribute("data-highlight-id") !== value
-    ) {
-      // Different highlight ID: skip InlineBlot's restrictive logic
-      ParentBlot.prototype.formatAt.call(this, index, length, name, value);
-    } else {
-      // Same or no highlight: use normal InlineBlot behavior
-      super.formatAt(index, length, name, value);
-    }
-  }
-
-  static formats(domNode) {
-    return domNode.getAttribute('data-highlight-id');
-  }
+  return hoverState ? highlightColorMap.get(id).hover : highlightColorMap.get(id).normal;
 }
 
 export function registerHighlightFormat() {
   try {
-    Quill.register(HighlightFormat);
+    Quill.register({ 'formats/highlight': new Highlight() });
   } catch (e) {
     // Format already registered, this is fine
   }
+}
+
+function getHighlights(span){
+  return _.filter(span.classList, (hl) => {
+    return hl.startsWith("highlight-")
+  }).map((hl) => {
+    return hl.slice("highlight-".length)
+  })
 }
 
 export function setupHoverListeners(quill, onHoverChange) {
@@ -100,37 +152,43 @@ export function setupHoverListeners(quill, onHoverChange) {
 
   // Attach mouseenter/mouseleave listeners to each highlight span
   function attachSpanListeners(span) {
-    const highlightId = span.getAttribute('data-highlight-id');
-
-    span.addEventListener('mouseenter', () => {
-      if (!currentHoveredIds.has(highlightId)) {
-        currentHoveredIds.add(highlightId);
-        // Only update visuals if onHoverChange isn't specified
-        if (onHoverChange) {
-          onHoverChange(highlightId, true);
-        } else {
-          updateHighlightVisuals(highlightId, true);
-        }
+    const highlightIds = span.classList;
+    highlightIds.forEach((hl) => {
+      if(!hl.startsWith("highlight-")){
+        return;
       }
-    });
+      const highlightId = hl.slice("highlight-".length)
+      onHoverChange(highlightId, false);
+      // Each span is going to potentially get many listeners, as each highlight
+      // it is a member of will contribute another listener
+      span.addEventListener('mouseenter', (e) => {
+        const span = e.target
+        const hls = getHighlights(span)
+        hls.forEach((highlightId) =>{
+          if (!currentHoveredIds.has(highlightId)) {
+            currentHoveredIds.add(highlightId);
+            onHoverChange(highlightId, true);
+          }
+        })
+      });
 
-    span.addEventListener('mouseleave', () => {
-      // Check if cursor is still over this highlight or a nested one
-      if (!isHighlightStillHovered(highlightId)) {
-        currentHoveredIds.delete(highlightId);
-        // Only update visuals if onHoverChange isn't specified
-        if (onHoverChange) {
-          onHoverChange(highlightId, false);
-        } else {
-          updateHighlightVisuals(highlightId, false);
-        }
-      }
-    });
+      span.addEventListener('mouseleave', (e) => {
+        const span = e.target
+        const hls = getHighlights(span)
+        hls.forEach((highlightId) =>{
+        // Check if cursor is still over this highlight or a nested one
+          if (!isHighlightStillHovered(highlightId)) {
+            currentHoveredIds.delete(highlightId);
+            onHoverChange(highlightId, false);
+          }
+        })
+      });
+    })
   }
 
   // Check if any spans of this highlight are curently hovered
   function isHighlightStillHovered(highlightId) {
-    const spans = document.querySelectorAll(`span[data-highlight-id="${highlightId}"]`);
+    const spans = document.querySelectorAll(`.highlight-${highlightId}`);
     for (let span of spans) {
       if (span.matches(':hover')) {
         return true;
@@ -140,17 +198,17 @@ export function setupHoverListeners(quill, onHoverChange) {
   }
 
   // Attach listeners to all existing highlight spans
-  editorElement.querySelectorAll('span[data-highlight-id]').forEach(attachSpanListeners);
+  editorElement.querySelectorAll('.highlight').forEach(attachSpanListeners);
 
   // Observe for new highlight spans and attach listeners
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       mutation.addedNodes.forEach((node) => {
-        if (node.nodeType === 1) { // Element node
-          if (node.hasAttribute('data-highlight-id')) {
+        if (node.nodeType === 1) { // HTML elements
+          if (node.classList.contains('highlight')) {
             attachSpanListeners(node);
           }
-          node.querySelectorAll?.('span[data-highlight-id]').forEach(attachSpanListeners);
+          node.querySelectorAll?.('.highlight').forEach(attachSpanListeners);
         }
       });
     });
@@ -162,17 +220,25 @@ export function setupHoverListeners(quill, onHoverChange) {
   });
 }
 
-function updateHighlightVisuals(id, isHovered) {
+
+function getColorForHighlights(highlights, hoveredState) {
+  const colors = _.filter(highlights, (hl) => hl.startsWith("highlight-"))
+    .map((hl) => hl.slice("highlight-".length))
+    .map((hl) => getColorForHighlight(hl, hoveredState[hl]))
+  return combineColorStringArrayPD(colors)
+}
+
+function updateHighlightVisuals(id, hoveredState) {
   // Find all spans with this highlight ID
-  const allHighlightSpans = document.querySelectorAll(`span[data-highlight-id="${id}"]`);
+  const allHighlightSpans = document.querySelectorAll(`.highlight-${id}`);
   allHighlightSpans.forEach((el) => {
-    const colors = getColorForHighlight(id);
-    el.style.backgroundColor = isHovered ? colors.hover : colors.normal;
+    const color = getColorForHighlights(el.classList, hoveredState);
+    el.style.backgroundColor = color;
   });
 }
 
-export function updateHoverFromState(highlightId, isHovered) {
+export function updateHoverFromState(highlightId, hoveredState) {
   // Called when state changes externally (e.g., from button clicks)
   // Syncs the visual state and manages the hover set
-  updateHighlightVisuals(highlightId, isHovered);
+  updateHighlightVisuals(highlightId, hoveredState);
 }
